@@ -24,6 +24,40 @@ $ make port-forward &
 $ make push-image
 ```
 
+## Usage
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: example-login-secret
+  labels:
+    supercaracal.example.com/used-by: "aws-ecr-image-pull-secret-controller"
+  annotations:
+    supercaracal.example.com/aws-ecr-image-pull-secret.name: "example-image-pull-secret"
+    supercaracal.example.com/aws-ecr-image-pull-secret.email: "foobar@example.com"
+    supercaracal.example.com/aws-ecr-image-pull-secret.aws_account_id: "000000000000"
+    supercaracal.example.com/aws-ecr-image-pull-secret.aws_region: "ap-northeast-1"
+type: Opaque
+data:
+  AWS_ACCESS_KEY_ID: "**********base64 encoded text**********"
+  AWS_SECRET_ACCESS_KEY: "**********base64 encoded text**********"
+```
+
+```
+$ cp config/example-secret.yaml config/secret.yaml
+$ vi config/secret.yaml
+$ kubectl --context=kind-kind apply -f config/secret.yaml
+```
+
+```
+$ kubectl --context=kind-kind get secrets
+NAME                        TYPE                                  DATA   AGE
+controller-token-8bmfl      kubernetes.io/service-account-token   3      37m
+default-token-s4wsj         kubernetes.io/service-account-token   3      39m
+example-image-pull-secret   kubernetes.io/dockerconfigjson        1      10m
+example-login-secret        Opaque                                2      33m
+```
+
 ## See also
 * [sample-controller](https://github.com/kubernetes/sample-controller)
 * [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder)
