@@ -24,8 +24,21 @@ type Reconciler struct {
 	lister corelisterv1.SecretLister
 }
 
+type imgPullSecretInfo struct {
+	name               string
+	email              string
+	awsEndpointURL     string
+	awsAccountID       string
+	awsRegion          string
+	awsAccessKeyID     string
+	awsSecretAccessKey string
+}
+
 const (
-	expirationPeriod = 8 * time.Hour
+	expirationPeriod       = 8 * time.Hour
+	awsAccessKeyIDName     = "AWS_ACCESS_KEY_ID"
+	awsSecretAccessKeyName = "AWS_SECRET_ACCESS_KEY"
+	annotationPrefix       = "supercaracal.example.com/aws-ecr-image-pull-secret"
 )
 
 // NewReconciler is
@@ -45,7 +58,7 @@ func (r *Reconciler) Run() {
 		return
 	}
 
-	targetSecrets, err := r.lister.List(selector)
+	loginSecrets, err := r.lister.List(selector)
 	if err != nil {
 		if !kubeerrors.IsNotFound(err) {
 			utilruntime.HandleError(err)
@@ -53,68 +66,86 @@ func (r *Reconciler) Run() {
 		return
 	}
 
-	baseTime := metav1.NewTime(time.Now().Add(-expirationPeriod))
-
-	for _, secret := range targetSecrets {
-		if baseTime.Before(&secret.CreationTimestamp) {
+	for _, loginSecret := range loginSecrets {
+		if err := r.renewImgPullSecretIfNeeded(loginSecret); err != nil {
+			utilruntime.HandleError(fmt.Errorf("%s/%s: %w", loginSecret.Namespace, loginSecret.Name, err))
 			continue
 		}
-
-		if err := r.renewFrom(secret); err != nil {
-			utilruntime.HandleError(fmt.Errorf("%s/%s: %w", secret.Namespace, secret.Name, err))
-			continue
-		}
-
 	}
 }
 
-func (r *Reconciler) renewFrom(secret *corev1.Secret) error {
-	if secret.Data["AWS_ACCESS_KEY_ID"] == nil || secret.Data["AWS_SECRET_ACCESS_KEY"] == nil {
-		return fmt.Errorf("AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are required")
-	}
-
-	accessKeyID, err := decodeBase64(secret.Data["AWS_ACCESS_KEY_ID"])
+func (r *Reconciler) renewImgPullSecretIfNeeded(loginSecret *corev1.Secret) error {
+	info, err := extractImgPullSecretInfo(loginSecret)
 	if err != nil {
 		return err
 	}
 
-	secretAccessKey, err := decodeBase64(secret.Data["AWS_SECRET_ACCESS_KEY"])
+	imgPullSecret, err := r.lister.Secrets(loginSecret.Namespace).Get(info.name)
+	if err != nil && !kubeerrors.IsNotFound(err) {
+		return err
+	}
+	if err == nil && imgPullSecret != nil {
+		baseTime := metav1.NewTime(time.Now().Add(-expirationPeriod))
+		if baseTime.Before(&imgPullSecret.CreationTimestamp) {
+			return nil
+		}
+	}
+
+	ecrCli, err := registries.NewECRClient(info.awsEndpointURL, info.awsRegion, info.awsAccessKeyID, info.awsSecretAccessKey)
 	if err != nil {
 		return err
 	}
 
-	a := secret.Annotations
-
-	ecrCli, err := registries.NewECRClient(
-		a["supercaracal.example.com/aws-ecr-image-pull-secret.aws_endpoint_url"],
-		a["supercaracal.example.com/aws-ecr-image-pull-secret.aws_region"],
-		accessKeyID,
-		secretAccessKey,
-	)
+	credential, err := ecrCli.Login(info.awsAccountID, info.email)
 	if err != nil {
 		return err
 	}
 
-	credential, err := ecrCli.Login(
-		a["supercaracal.example.com/aws-ecr-image-pull-secret.aws_account_id"],
-		a["supercaracal.example.com/aws-ecr-image-pull-secret.email"],
-	)
-	if err != nil {
-		return err
+	if imgPullSecret != nil {
+		if err := r.client.DeleteSecret(imgPullSecret); err != nil {
+			return err
+		}
 	}
 
-	if err = r.client.UpdateSecret(
-		a["supercaracal.example.com/aws_ecr-image-pull-secret.name"],
+	if err := r.client.CreateSecret(
+		info.name,
 		credential.Server,
 		credential.UserName,
 		credential.Password,
 		credential.Email,
-		secret.Namespace,
+		loginSecret.Namespace,
 	); err != nil {
+
 		return err
 	}
 
 	return nil
+}
+
+func extractImgPullSecretInfo(loginSecret *corev1.Secret) (*imgPullSecretInfo, error) {
+	if loginSecret.Data[awsAccessKeyIDName] == nil || loginSecret.Data[awsSecretAccessKeyName] == nil {
+		return nil, fmt.Errorf("%s and %s are required", awsAccessKeyIDName, awsSecretAccessKeyName)
+	}
+
+	awsAccessKeyID, err := decodeBase64(loginSecret.Data[awsAccessKeyIDName])
+	if err != nil {
+		return nil, err
+	}
+
+	awsSecretAccessKey, err := decodeBase64(loginSecret.Data[awsSecretAccessKeyName])
+	if err != nil {
+		return nil, err
+	}
+
+	return &imgPullSecretInfo{
+		name:               loginSecret.Annotations[annotationPrefix+".name"],
+		email:              loginSecret.Annotations[annotationPrefix+".email"],
+		awsEndpointURL:     loginSecret.Annotations[annotationPrefix+".aws_endpoint_url"],
+		awsAccountID:       loginSecret.Annotations[annotationPrefix+".aws_account_id"],
+		awsRegion:          loginSecret.Annotations[annotationPrefix+".aws_region"],
+		awsAccessKeyID:     awsAccessKeyID,
+		awsSecretAccessKey: awsSecretAccessKey,
+	}, nil
 }
 
 func decodeBase64(src []byte) (string, error) {

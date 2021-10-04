@@ -44,8 +44,8 @@ type ImgPullSecretClient struct {
 }
 
 var (
-	delOpts = metav1.DeleteOptions{}
 	creOpts = metav1.CreateOptions{}
+	delOpts = metav1.DeleteOptions{}
 )
 
 // NewImgPullSecretClient is a constructor
@@ -53,32 +53,27 @@ func NewImgPullSecretClient(set kubernetes.Interface, rec record.EventRecorder) 
 	return &ImgPullSecretClient{set: set, recorder: rec}
 }
 
-// UpdateSecret is a updater for Kubernetes secret of docker-registry type
-func (c *ImgPullSecretClient) UpdateSecret(name, server, user, password, email, namespace string) error {
-	if err := c.deleteSecret(name, namespace); err != nil {
+// DeleteSecret is
+func (c *ImgPullSecretClient) DeleteSecret(secret *corev1.Secret) error {
+	err := c.set.CoreV1().Secrets(secret.Namespace).Delete(context.TODO(), secret.Name, delOpts)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+
 		return err
 	}
 
-	if err := c.createSecret(name, server, user, password, email, namespace); err != nil {
-		return err
-	}
-
+	c.recorder.Eventf(secret, corev1.EventTypeNormal, "SuccessfulDelete", "Deleted secret %s/%s", secret.Namespace, secret.Name)
+	klog.V(4).Infof("Deleted secret %s/%s successfully", secret.Namespace, secret.Name)
 	return nil
 }
 
-func (c *ImgPullSecretClient) deleteSecret(name, namespace string) error {
-	if err := c.set.CoreV1().Secrets(namespace).Delete(context.TODO(), name, delOpts); err != nil && apierrors.IsNotFound(err) == false {
-		return err
-	}
-
-	c.recorder.Eventf(nil, corev1.EventTypeNormal, "SuccessfulDelete", "Deleted secret %s/%s", namespace, name)
-	klog.V(4).Infof("Deleted secret %s/%s successfully", namespace, name)
-	return nil
-}
-
-func (c *ImgPullSecretClient) createSecret(name, server, user, password, email, namespace string) error {
-	secret := &corev1.Secret{}
+// CreateSecret is
+func (c *ImgPullSecretClient) CreateSecret(name, server, user, password, email, namespace string) error {
+	secret := corev1.Secret{}
 	secret.Name = name
+	secret.Namespace = namespace
 	secret.Type = corev1.SecretTypeDockerConfigJson
 	secret.Data = map[string][]byte{}
 
@@ -89,11 +84,11 @@ func (c *ImgPullSecretClient) createSecret(name, server, user, password, email, 
 
 	secret.Data[corev1.DockerConfigJsonKey] = data
 
-	if _, err = c.set.CoreV1().Secrets(namespace).Create(context.TODO(), secret, creOpts); err != nil {
+	if _, err = c.set.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, creOpts); err != nil {
 		return err
 	}
 
-	c.recorder.Eventf(secret, corev1.EventTypeNormal, "SuccessfulCreate", "Created secret %s/%s", namespace, name)
+	c.recorder.Eventf(&secret, corev1.EventTypeNormal, "SuccessfulCreate", "Created secret %s/%s", namespace, name)
 	klog.V(4).Infof("Created secret %s/%s successfully", namespace, name)
 	return nil
 }
