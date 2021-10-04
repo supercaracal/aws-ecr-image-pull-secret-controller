@@ -1,0 +1,90 @@
+---
+# @see https://help.github.com/en/actions/automating-your-workflow-with-github-actions/workflow-syntax-for-github-actions
+# @see https://github.com/actions/virtual-environments
+name: Test
+on:
+  push:
+    branches:
+      - "*"
+defaults:
+  run:
+    shell: bash
+jobs:
+  code:
+    name: Code
+    timeout-minutes: 15
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: "1.17"
+
+      - name: Check out Go cache paths
+        id: go-cache-paths
+        run: |
+          echo "::set-output name=go-cache::$(go env GOCACHE)"
+          echo "::set-output name=go-mod-cache::$(go env GOMODCACHE)"
+
+      - name: Cache GOCACHE
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-cache }}
+          key: ${{ runner.os }}-go-cache-${{ hashFiles('*.go', '**/*.go') }}
+
+      - name: Cache GOMODCACHE
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-mod-cache }}
+          key: ${{ runner.os }}-go-mod-cache-${{ hashFiles('go.sum', '**/go.sum') }}
+
+      - name: Build
+        run: make build
+
+      - name: Lint
+        run: make lint
+
+      - name: Test
+        run: make test
+  image:
+    name: Image
+    timeout-minutes: 15
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Lint container image
+        run: make lint-image
+
+      - name: Build container image
+        run: make build-image
+
+      - name: Create cluster with Kind
+        run: kind create cluster
+
+      - name: Apply manifests
+        run: make apply-manifests
+
+      - name: Waiting for registry to be ready
+        run: make wait-registry-running
+
+      - name: Start port forwarding for container registry
+        run: make port-forward &
+
+      - name: Push container image
+        run: make push-image
+
+      - name: Waiting for controller to be ready
+        run: make wait-controller-running
+
+      - name: Waiting for example pod to be completed
+        run: make wait-example-completed
+
+      - name: Get pod logs
+        run: |
+          name=$(kubectl --context=kind-kind get pods -o json | jq -r '.items[] | .metadata.name' | grep example)
+          kubectl --context=kind-kind logs $name | tee /dev/stderr | grep 'Hello world'

@@ -1,0 +1,53 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: registry
+spec:
+  serviceName: registry
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: docker-registry
+      app.kubernetes.io/part-of: supercaracal.example.com
+      app.kubernetes.io/component: registry
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: docker-registry
+        app.kubernetes.io/part-of: supercaracal.example.com
+        app.kubernetes.io/component: registry
+    spec:
+      containers:
+        - name: main
+          image: registry:latest # https://hub.docker.com/_/registry
+          env:
+            - name: REGISTRY_HTTP_SECRET
+              value: "abc123"
+          ports:
+            - containerPort: 5000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 100m
+              memory: 256Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: docker-registry
+    app.kubernetes.io/part-of: supercaracal.example.com
+    app.kubernetes.io/component: registry
+  ports:
+    - name: "edge-port"
+      protocol: "TCP"
+      port: 5000
+      targetPort: 5000
+      nodePort: 32123

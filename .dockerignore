@@ -1,0 +1,5 @@
+/.git
+/.github
+/_tmp
+/kubernetes-controller-template
+.env

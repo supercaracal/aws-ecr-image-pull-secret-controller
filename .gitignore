@@ -1,0 +1,6 @@
+/_tmp
+/vendor
+/pkg/apis/**/zz_generated.deepcopy.go
+/pkg/generated
+/kubernetes-controller-template
+.env
