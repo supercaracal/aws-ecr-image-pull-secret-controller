@@ -38,7 +38,9 @@ const (
 	expirationPeriod       = 8 * time.Hour
 	awsAccessKeyIDName     = "AWS_ACCESS_KEY_ID"
 	awsSecretAccessKeyName = "AWS_SECRET_ACCESS_KEY"
-	annotationPrefix       = "supercaracal.example.com/aws-ecr-image-pull-secret"
+	domainPrefix           = "supercaracal.example.com"
+	annotationPrefix       = domainPrefix + "/aws-ecr-image-pull-secret"
+	managerName            = "aws-ecr-image-pull-secret-controller"
 )
 
 // NewReconciler is
@@ -49,7 +51,7 @@ func NewReconciler(cli kubernetes.Interface, list corelisterv1.SecretLister, rec
 // Run is
 func (r *Reconciler) Run() {
 	labelSet := labels.Set{
-		"supercaracal.example.com/used-by": "aws-ecr-image-pull-secret-controller",
+		domainPrefix + "/used-by": managerName,
 	}
 
 	selector, err := labels.ValidatedSelectorFromSet(labelSet)

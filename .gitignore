@@ -1,4 +1,5 @@
 /_tmp
 /vendor
 /aws-ecr-image-pull-secret-controller
+/config/secret.yaml
 .env

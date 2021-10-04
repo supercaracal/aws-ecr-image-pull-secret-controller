@@ -81,8 +81,5 @@ jobs:
       - name: Waiting for controller to be ready
         run: make wait-controller-running
 
-      - name: Waiting for example pod to be completed
-        run: make wait-example-completed
-
       - name: Test
         run: echo TODO
