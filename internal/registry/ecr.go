@@ -40,7 +40,7 @@ func NewECRClient(endpointURL, region, accessKeyID, secretAccessKey string) (*EC
 		return nil, fmt.Errorf("region, accessKeyID and secretAccessKey are required")
 	}
 
-	cfg, err := loadAWSConfig(region, endpointURL, accessKeyID, secretAccessKey)
+	cfg, err := loadAWSConfig(endpointURL, region, accessKeyID, secretAccessKey)
 	if err != nil {
 		return nil, err
 	}
@@ -48,45 +48,35 @@ func NewECRClient(endpointURL, region, accessKeyID, secretAccessKey string) (*EC
 	return &ECRClient{svc: ecr.NewFromConfig(cfg), region: region}, nil
 }
 
-func loadAWSConfig(region, endpointURL, accessKeyID, secretAccessKey string) (aws.Config, error) {
+func loadAWSConfig(endpointURL, region, accessKeyID, secretAccessKey string) (aws.Config, error) {
+	ctx := context.TODO()
+	reg := config.WithRegion(region)
+	cred := config.WithCredentialsProvider(
+		credentials.StaticCredentialsProvider{
+			Value: aws.Credentials{
+				AccessKeyID:     accessKeyID,
+				SecretAccessKey: secretAccessKey,
+			},
+		},
+	)
+
 	if endpointURL == "" {
-		return config.LoadDefaultConfig(
-			context.TODO(),
-			config.WithRegion(region),
-			config.WithCredentialsProvider(
-				credentials.StaticCredentialsProvider{
-					Value: aws.Credentials{
-						AccessKeyID:     accessKeyID,
-						SecretAccessKey: secretAccessKey,
-					},
-				},
-			),
-		)
+		return config.LoadDefaultConfig(ctx, reg, cred)
 	}
 
-	return config.LoadDefaultConfig(
-		context.TODO(),
-		config.WithRegion(region),
-		config.WithCredentialsProvider(
-			credentials.StaticCredentialsProvider{
-				Value: aws.Credentials{
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
-				},
+	endp := config.WithEndpointResolver(
+		aws.EndpointResolverFunc(
+			func(service, region string) (aws.Endpoint, error) {
+				return aws.Endpoint{
+					PartitionID:   "aws",
+					URL:           endpointURL,
+					SigningRegion: region,
+				}, nil
 			},
 		),
-		config.WithEndpointResolver(
-			aws.EndpointResolverFunc(
-				func(service, region string) (aws.Endpoint, error) {
-					return aws.Endpoint{
-						PartitionID:   "aws",
-						URL:           endpointURL,
-						SigningRegion: region,
-					}, nil
-				},
-			),
-		),
 	)
+
+	return config.LoadDefaultConfig(ctx, reg, cred, endp)
 }
 
 // Login is authorization for AWS ECR
