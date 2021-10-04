@@ -1,7 +1,0 @@
----
-apiVersion: supercaracal.example.com/v1
-kind: FooBar
-metadata:
-  name: example
-spec:
-  message: "Hello world"

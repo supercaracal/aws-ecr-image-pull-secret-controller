@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	controllers "github.com/supercaracal/kubernetes-controller-template/internal/controller"
+	controllers "github.com/supercaracal/aws-ecr-image-pull-secret-controller/internal/controller"
 )
 
 var (
@@ -38,19 +38,8 @@ func main() {
 }
 
 func init() {
-	flag.StringVar(
-		&masterURL,
-		"master",
-		"",
-		"The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.",
-	)
-
-	flag.StringVar(
-		&kubeconfig,
-		"kubeconfig",
-		"",
-		"Path to a kubeconfig. Only required if out-of-cluster.",
-	)
+	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 }
 
 func buildConfig(masterURL, kubeconfig string) (*rest.Config, error) {

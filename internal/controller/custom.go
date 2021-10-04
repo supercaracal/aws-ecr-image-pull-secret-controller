@@ -15,91 +15,50 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	handlers "github.com/supercaracal/kubernetes-controller-template/internal/handler"
-	workers "github.com/supercaracal/kubernetes-controller-template/internal/worker"
-	customclient "github.com/supercaracal/kubernetes-controller-template/pkg/generated/clientset/versioned"
-	customscheme "github.com/supercaracal/kubernetes-controller-template/pkg/generated/clientset/versioned/scheme"
-	custominformers "github.com/supercaracal/kubernetes-controller-template/pkg/generated/informers/externalversions"
-	customlisterv1 "github.com/supercaracal/kubernetes-controller-template/pkg/generated/listers/supercaracal/v1"
+	workers "github.com/supercaracal/aws-ecr-image-pull-secret-controller/internal/worker"
 )
 
 const (
 	informerReSyncDuration = 10 * time.Second
-	cleanupDuration        = 10 * time.Second
-	reconcileDuration      = 5 * time.Second
-	resourceName           = "FooBars"
-	controllerName         = "kubernetes-controller-template"
+	reconciliationDuration = 10 * time.Second
+	controllerName         = "aws-ecr-image-pull-secret-controller"
 )
 
 // CustomController is
 type CustomController struct {
-	builtin   *builtinTool
-	custom    *customTool
-	workQueue workqueue.RateLimitingInterface
+	builtin *builtinTool
 }
 
 type builtinTool struct {
 	client  kubernetes.Interface
 	factory kubeinformers.SharedInformerFactory
-	pod     *podInfo
+	secret  *secretInfo
 }
 
-type customTool struct {
-	client   customclient.Interface
-	factory  custominformers.SharedInformerFactory
-	resource *customResourceInfo
-}
-
-type podInfo struct {
+type secretInfo struct {
 	informer cache.SharedIndexInformer
-	lister   corelisterv1.PodLister
-}
-
-type customResourceInfo struct {
-	informer cache.SharedIndexInformer
-	lister   customlisterv1.FooBarLister
+	lister   corelisterv1.SecretLister
 }
 
 // NewCustomController is
 func NewCustomController(cfg *rest.Config) (*CustomController, error) {
-	if err := customscheme.AddToScheme(kubescheme.Scheme); err != nil {
-		return nil, err
-	}
-
 	builtin, err := buildBuiltinTools(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	custom, err := buildCustomResourceTools(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	wq := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), resourceName)
-
-	h := handlers.NewInformerHandler(wq)
-	custom.resource.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    h.OnAdd,
-		UpdateFunc: h.OnUpdate,
-		DeleteFunc: h.OnDelete,
-	})
-
-	return &CustomController{builtin: builtin, custom: custom, workQueue: wq}, nil
+	return &CustomController{builtin: builtin}, nil
 }
 
 // Run is
 func (c *CustomController) Run(stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
-	defer c.workQueue.ShutDown()
 
 	c.builtin.factory.Start(stopCh)
-	c.custom.factory.Start(stopCh)
 
-	if ok := cache.WaitForCacheSync(stopCh, c.builtin.pod.informer.HasSynced, c.custom.resource.informer.HasSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.builtin.secret.informer.HasSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -116,21 +75,9 @@ func (c *CustomController) Run(stopCh <-chan struct{}) error {
 
 	recorder := eventBroadcaster.NewRecorder(kubescheme.Scheme, corev1.EventSource{Component: controllerName})
 
-	worker := workers.NewReconciler(
-		&workers.ResourceClient{
-			Builtin: c.builtin.client,
-			Custom:  c.custom.client,
-		},
-		&workers.ResourceLister{
-			Pod:            c.builtin.pod.lister,
-			CustomResource: c.custom.resource.lister,
-		},
-		c.workQueue,
-		recorder,
-	)
+	worker := workers.NewReconciler(c.builtin.client, c.builtin.secret.lister, recorder)
 
-	go wait.Until(worker.Run, reconcileDuration, stopCh)
-	go wait.Until(worker.Clean, cleanupDuration, stopCh)
+	go wait.Until(worker.Run, reconciliationDuration, stopCh)
 
 	klog.V(4).Info("Controller is ready")
 	<-stopCh
@@ -146,21 +93,8 @@ func buildBuiltinTools(cfg *rest.Config) (*builtinTool, error) {
 	}
 
 	info := kubeinformers.NewSharedInformerFactory(cli, informerReSyncDuration)
-	pod := info.Core().V1().Pods()
-	p := podInfo{informer: pod.Informer(), lister: pod.Lister()}
+	secret := info.Core().V1().Secrets()
+	s := secretInfo{informer: secret.Informer(), lister: secret.Lister()}
 
-	return &builtinTool{client: cli, factory: info, pod: &p}, nil
-}
-
-func buildCustomResourceTools(cfg *rest.Config) (*customTool, error) {
-	cli, err := customclient.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	info := custominformers.NewSharedInformerFactory(cli, informerReSyncDuration)
-	cr := info.Supercaracal().V1().FooBars()
-	r := customResourceInfo{informer: cr.Informer(), lister: cr.Lister()}
-
-	return &customTool{client: cli, factory: info, resource: &r}, nil
+	return &builtinTool{client: cli, factory: info, secret: &s}, nil
 }

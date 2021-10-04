@@ -84,7 +84,5 @@ jobs:
       - name: Waiting for example pod to be completed
         run: make wait-example-completed
 
-      - name: Get pod logs
-        run: |
-          name=$(kubectl --context=kind-kind get pods -o json | jq -r '.items[] | .metadata.name' | grep example)
-          kubectl --context=kind-kind logs $name | tee /dev/stderr | grep 'Hello world'
+      - name: Test
+        run: echo TODO
