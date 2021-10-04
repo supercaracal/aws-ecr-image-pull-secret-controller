@@ -1,5 +1,5 @@
 /.git
 /.github
 /_tmp
-/kubernetes-controller-template
+/aws-ecr-image-pull-secret-controller
 .env

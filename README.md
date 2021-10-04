@@ -1,11 +1,11 @@
-![](https://github.com/supercaracal/kubernetes-controller-template/workflows/Test/badge.svg?branch=master)
-![](https://github.com/supercaracal/kubernetes-controller-template/workflows/Release/badge.svg)
+![](https://github.com/supercaracal/aws-ecr-image-pull-secret-controller/workflows/Test/badge.svg?branch=master)
+![](https://github.com/supercaracal/aws-ecr-image-pull-secret-controller/workflows/Release/badge.svg)
 
-Kubernetes Controller Template
+AWS ECR image pull secret controller
 ===============================================================================
 
-This controller has a feature to create a pod to log a message declared by manifest.
-The pod will be deleted automatically by the controller later.
+This controller has a feature to renew image-pull secrets for AWS ECR.
+Since docker login for AWS ECR expires at 12 hours later, the controller is needed for non EKS.
 
 ## Running controller on local host
 ```
@@ -24,34 +24,43 @@ $ make port-forward &
 $ make push-image
 ```
 
+## Usage
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: example-login-secret
+  labels:
+    supercaracal.example.com/used-by: "aws-ecr-image-pull-secret-controller"
+  annotations:
+    supercaracal.example.com/aws-ecr-image-pull-secret.name: "example-image-pull-secret"
+    supercaracal.example.com/aws-ecr-image-pull-secret.email: "foobar@example.com"
+    supercaracal.example.com/aws-ecr-image-pull-secret.aws_account_id: "000000000000"
+    supercaracal.example.com/aws-ecr-image-pull-secret.aws_region: "ap-northeast-1"
+type: Opaque
+data:
+  AWS_ACCESS_KEY_ID: "**********base64 encoded text**********"
+  AWS_SECRET_ACCESS_KEY: "**********base64 encoded text**********"
+```
+
+```
+$ cp config/example-secret.yaml config/secret.yaml
+$ vi config/secret.yaml
+$ kubectl --context=kind-kind apply -f config/secret.yaml
+```
+
+```
+$ kubectl --context=kind-kind get secrets
+NAME                        TYPE                                  DATA   AGE
+controller-token-8bmfl      kubernetes.io/service-account-token   3      37m
+default-token-s4wsj         kubernetes.io/service-account-token   3      39m
+example-image-pull-secret   kubernetes.io/dockerconfigjson        1      10m
+example-login-secret        Opaque                                2      33m
+```
+
 ## See also
 * [sample-controller](https://github.com/kubernetes/sample-controller)
 * [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder)
 * [operator-sdk](https://github.com/operator-framework/operator-sdk)
 * [kind](https://github.com/kubernetes-sigs/kind)
 * [Kubernetes Reference](https://kubernetes.io/docs/reference/)
-
-## TODO
-You can edit the following files as needed.
-
-```
-$ grep -riIl --exclude-dir=generated --exclude-dir=.git --exclude=zz_generated.deepcopy.go 'supercaracal\|foobar\|kubernetes-controller-template' .
-./README.md
-./go.mod
-./.github/workflows/release.yaml
-./internal/controller/custom.go
-./internal/worker/reconciler.go
-./Makefile
-./.dockerignore
-./.gitignore
-./config/controller.yaml
-./config/registry.yaml
-./config/crd.yaml
-./config/example-foobar.yaml
-./main.go
-./pkg/apis/supercaracal/register.go
-./pkg/apis/supercaracal/v1/doc.go
-./pkg/apis/supercaracal/v1/register.go
-./pkg/apis/supercaracal/v1/types.go
-./Dockerfile
-```

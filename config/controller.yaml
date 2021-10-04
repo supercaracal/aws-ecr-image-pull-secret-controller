@@ -11,12 +11,10 @@ metadata:
   name: controller
 rules:
   - apiGroups:
-      - supercaracal.example.com
       - ""
     resources:
       - events
-      - foobars
-      - pods
+      - secrets
     verbs:
       - "*"
 
@@ -40,11 +38,9 @@ metadata:
   name: controller
 rules:
   - apiGroups:
-      - supercaracal.example.com
       - ""
     resources:
-      - foobars
-      - pods
+      - secrets
     verbs:
       - "get"
       - "list"
@@ -75,20 +71,20 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: kubernetes-controller-template
+      app.kubernetes.io/name: aws-ecr-image-pull-secret-controller
       app.kubernetes.io/part-of: supercaracal.example.com
       app.kubernetes.io/component: controller
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: kubernetes-controller-template
+        app.kubernetes.io/name: aws-ecr-image-pull-secret-controller
         app.kubernetes.io/part-of: supercaracal.example.com
         app.kubernetes.io/component: controller
     spec:
       serviceAccountName: controller
       containers:
         - name: main
-          image: 127.0.0.1:32123/kubernetes-controller-template:latest
+          image: 127.0.0.1:32123/aws-ecr-image-pull-secret-controller:latest
           env:
             - name: TZ
               value: "Asia/Tokyo"
