@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -129,35 +128,13 @@ func extractImgPullSecretInfo(loginSecret *corev1.Secret) (*imgPullSecretInfo, e
 		return nil, fmt.Errorf("%s and %s are required", awsAccessKeyIDName, awsSecretAccessKeyName)
 	}
 
-	awsAccessKeyID, err := decodeBase64(loginSecret.Data[awsAccessKeyIDName])
-	if err != nil {
-		return nil, err
-	}
-
-	awsSecretAccessKey, err := decodeBase64(loginSecret.Data[awsSecretAccessKeyName])
-	if err != nil {
-		return nil, err
-	}
-
 	return &imgPullSecretInfo{
 		name:               loginSecret.Annotations[annotationPrefix+".name"],
 		email:              loginSecret.Annotations[annotationPrefix+".email"],
 		awsEndpointURL:     loginSecret.Annotations[annotationPrefix+".aws_endpoint_url"],
 		awsAccountID:       loginSecret.Annotations[annotationPrefix+".aws_account_id"],
 		awsRegion:          loginSecret.Annotations[annotationPrefix+".aws_region"],
-		awsAccessKeyID:     awsAccessKeyID,
-		awsSecretAccessKey: awsSecretAccessKey,
+		awsAccessKeyID:     string(loginSecret.Data[awsAccessKeyIDName]),
+		awsSecretAccessKey: string(loginSecret.Data[awsSecretAccessKeyName]),
 	}, nil
-}
-
-func decodeBase64(src []byte) (string, error) {
-	size := base64.StdEncoding.DecodedLen(len(src))
-	dst := make([]byte, size)
-	if n, err := base64.StdEncoding.Decode(dst, src); err != nil {
-		return "", err
-	} else if n != size {
-		return "", fmt.Errorf("base64 decoding size: want=%d, got=%d", size, n)
-	}
-
-	return string(dst), nil
 }
