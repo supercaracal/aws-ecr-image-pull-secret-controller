@@ -34,12 +34,18 @@ type imgPullSecretInfo struct {
 }
 
 const (
-	expirationPeriod       = 8 * time.Hour
-	awsAccessKeyIDName     = "AWS_ACCESS_KEY_ID"
-	awsSecretAccessKeyName = "AWS_SECRET_ACCESS_KEY"
-	domainPrefix           = "supercaracal.example.com"
-	annotationPrefix       = domainPrefix + "/aws-ecr-image-pull-secret"
-	managerName            = "aws-ecr-image-pull-secret-controller"
+	expirationPeriod         = 8 * time.Hour
+	awsAccessKeyIDName       = "AWS_ACCESS_KEY_ID"
+	awsSecretAccessKeyName   = "AWS_SECRET_ACCESS_KEY"
+	domainPrefix             = "supercaracal.example.com"
+	labelKey                 = domainPrefix + "/used-by"
+	annotationPrefix         = domainPrefix + "/aws-ecr-image-pull-secret"
+	annotationName           = annotationPrefix + ".name"
+	annotationEmail          = annotationPrefix + ".email"
+	annotationAWSEndpointURL = annotationPrefix + ".aws_endpoint_url"
+	annotationAWSAccountID   = annotationPrefix + ".aws_account_id"
+	annotationAWSRegion      = annotationPrefix + ".aws_region"
+	managerName              = "aws-ecr-image-pull-secret-controller"
 )
 
 // NewReconciler is
@@ -49,11 +55,7 @@ func NewReconciler(cli kubernetes.Interface, list corelisterv1.SecretLister, rec
 
 // Run is
 func (r *Reconciler) Run() {
-	labelSet := labels.Set{
-		domainPrefix + "/used-by": managerName,
-	}
-
-	selector, err := labels.ValidatedSelectorFromSet(labelSet)
+	selector, err := labels.ValidatedSelectorFromSet(labels.Set{labelKey: managerName})
 	if err != nil {
 		utilruntime.HandleError(err)
 		return
@@ -129,11 +131,11 @@ func extractImgPullSecretInfo(loginSecret *corev1.Secret) (*imgPullSecretInfo, e
 	}
 
 	return &imgPullSecretInfo{
-		name:               loginSecret.Annotations[annotationPrefix+".name"],
-		email:              loginSecret.Annotations[annotationPrefix+".email"],
-		awsEndpointURL:     loginSecret.Annotations[annotationPrefix+".aws_endpoint_url"],
-		awsAccountID:       loginSecret.Annotations[annotationPrefix+".aws_account_id"],
-		awsRegion:          loginSecret.Annotations[annotationPrefix+".aws_region"],
+		name:               loginSecret.Annotations[annotationName],
+		email:              loginSecret.Annotations[annotationEmail],
+		awsEndpointURL:     loginSecret.Annotations[annotationAWSEndpointURL],
+		awsAccountID:       loginSecret.Annotations[annotationAWSAccountID],
+		awsRegion:          loginSecret.Annotations[annotationAWSRegion],
 		awsAccessKeyID:     string(loginSecret.Data[awsAccessKeyIDName]),
 		awsSecretAccessKey: string(loginSecret.Data[awsSecretAccessKeyName]),
 	}, nil

@@ -64,3 +64,4 @@ example-login-secret        Opaque                                2      33m
 * [operator-sdk](https://github.com/operator-framework/operator-sdk)
 * [kind](https://github.com/kubernetes-sigs/kind)
 * [Kubernetes Reference](https://kubernetes.io/docs/reference/)
+* [Configure a kubelet image credential provider](https://kubernetes.io/docs/tasks/kubelet-credential-provider/kubelet-credential-provider/)
