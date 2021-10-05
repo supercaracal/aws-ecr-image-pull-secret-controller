@@ -58,6 +58,20 @@ example-image-pull-secret   kubernetes.io/dockerconfigjson        1      10m
 example-login-secret        Opaque                                2      33m
 ```
 
+```
+$ kubectl --context=kind-kind get secrets example-image-pull-secret -o json | jq -r .data.'".dockerconfigjson"' | base64 -d | jq .
+{
+  "auths": {
+    "https://000000000000.dkr.ecr.ap-northeast-1.amazonaws.com": {
+      "username": "AWS",
+      "password": "*****************************************",
+      "email": "foo@example.com",
+      "auth": "*****************************************"
+    }
+  }
+}
+```
+
 ## See also
 * [sample-controller](https://github.com/kubernetes/sample-controller)
 * [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder)
