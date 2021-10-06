@@ -7,6 +7,16 @@ AWS ECR image pull secret controller
 This controller has a feature to renew image-pull secrets for AWS ECR.
 Since docker login for AWS ECR expires at 12 hours later, the controller is needed for non EKS.
 
+## Controller's action
+This controller checks all image pull secrets every 10 second.
+The controller acts as the followings.
+
+| image pull secret | expiration | action |
+| --- | --- | --- |
+| not exists | | creates a new image pull secret |
+| exists | valid | does nothing |
+| exists | expired | deletes old image pull secret and creates new one |
+
 ## Running controller on local host
 ```
 $ kind create cluster
@@ -15,7 +25,7 @@ $ make build
 $ make run
 ```
 
-## Running controller in Docker
+## Running controller in cluster
 ```
 $ kind create cluster
 $ make apply-manifests
