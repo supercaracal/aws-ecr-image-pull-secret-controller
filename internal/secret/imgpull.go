@@ -71,10 +71,10 @@ func (c *ImgPullSecretClient) DeleteSecret(secret *corev1.Secret) error {
 }
 
 // CreateSecret is
-func (c *ImgPullSecretClient) CreateSecret(name, server, user, password, email, namespace string, owner *corev1.Secret) error {
+func (c *ImgPullSecretClient) CreateSecret(name, server, user, password, email string, owner *corev1.Secret) error {
 	secret := corev1.Secret{}
 	secret.Name = name
-	secret.Namespace = namespace
+	secret.Namespace = owner.Namespace
 	secret.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(owner, ownerGroup)}
 	secret.Type = corev1.SecretTypeDockerConfigJson
 	secret.Data = map[string][]byte{}
@@ -86,12 +86,12 @@ func (c *ImgPullSecretClient) CreateSecret(name, server, user, password, email, 
 
 	secret.Data[corev1.DockerConfigJsonKey] = data
 
-	if _, err = c.set.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, creOpts); err != nil {
+	if _, err = c.set.CoreV1().Secrets(secret.Namespace).Create(context.TODO(), &secret, creOpts); err != nil {
 		return err
 	}
 
-	c.recorder.Eventf(&secret, corev1.EventTypeNormal, "SuccessfulCreate", "Created secret %s/%s", namespace, name)
-	klog.V(4).Infof("Created secret %s/%s successfully", namespace, name)
+	c.recorder.Eventf(&secret, corev1.EventTypeNormal, "SuccessfulCreate", "Created secret %s/%s", secret.Namespace, secret.Name)
+	klog.V(4).Infof("Created secret %s/%s successfully", secret.Namespace, secret.Name)
 	return nil
 }
 
