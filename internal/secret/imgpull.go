@@ -44,8 +44,9 @@ type ImgPullSecretClient struct {
 }
 
 var (
-	creOpts = metav1.CreateOptions{}
-	delOpts = metav1.DeleteOptions{}
+	creOpts    = metav1.CreateOptions{}
+	delOpts    = metav1.DeleteOptions{}
+	ownerGroup = corev1.SchemeGroupVersion.WithKind("Secret")
 )
 
 // NewImgPullSecretClient is a constructor
@@ -70,10 +71,11 @@ func (c *ImgPullSecretClient) DeleteSecret(secret *corev1.Secret) error {
 }
 
 // CreateSecret is
-func (c *ImgPullSecretClient) CreateSecret(name, server, user, password, email, namespace string) error {
+func (c *ImgPullSecretClient) CreateSecret(name, server, user, password, email, namespace string, owner *corev1.Secret) error {
 	secret := corev1.Secret{}
 	secret.Name = name
 	secret.Namespace = namespace
+	secret.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(owner, ownerGroup)}
 	secret.Type = corev1.SecretTypeDockerConfigJson
 	secret.Data = map[string][]byte{}
 
