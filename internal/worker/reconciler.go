@@ -117,6 +117,7 @@ func (r *Reconciler) renewImgPullSecretIfNeeded(loginSecret *corev1.Secret) erro
 		credential.Password,
 		credential.Email,
 		loginSecret.Namespace,
+		loginSecret,
 	); err != nil {
 
 		return err
