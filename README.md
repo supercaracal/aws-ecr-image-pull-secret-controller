@@ -5,7 +5,7 @@ AWS ECR image pull secret controller
 ===============================================================================
 
 This controller has a feature to renew image-pull secrets for AWS ECR.
-Since docker login for AWS ECR expires at 12 hours later, the controller is needed for non EKS.
+Since docker login for AWS ECR expires at [12 hours](https://docs.aws.amazon.com/cli/latest/reference/ecr/get-login.html) later, the controller is needed for non EKS.
 
 ## Controller's action
 This controller checks all image pull secrets every 10 second.
