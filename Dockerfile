@@ -1,4 +1,4 @@
-FROM golang:1.17 as builder
+FROM golang:1.19 as builder
 WORKDIR /go/src/app
 COPY . .
 RUN make build GOOS=linux GOARCH=amd64 CGO_ENABLED=0
