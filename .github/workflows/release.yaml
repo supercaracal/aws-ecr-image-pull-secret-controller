@@ -9,14 +9,17 @@ on:
 jobs:
   push:
     name: Push
+    if: github.repository == 'supercaracal/aws-ecr-image-pull-secret-controller'
     timeout-minutes: 15
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    concurrency: aws-ecr-image-pull-secret-controller
+    permissions:
+      packages: write
     env:
       IMAGE_NAME: aws-ecr-image-pull-secret-controller
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Build image
         run: docker build . --file Dockerfile --tag $IMAGE_NAME

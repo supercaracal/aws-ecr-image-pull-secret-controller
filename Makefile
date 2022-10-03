@@ -66,7 +66,7 @@ apply-manifests:
 	${QUIET} kubectl --context=kind-kind apply -f config/registry.yaml
 	${QUIET} kubectl --context=kind-kind apply -f config/controller.yaml
 
-replace-k8s-go-module: KUBE_LIB_VER := 1.22.1
+replace-k8s-go-module: KUBE_LIB_VER := 1.25.2
 replace-k8s-go-module:
 	${QUIET} ./scripts/replace_k8s_go_module.sh ${KUBE_LIB_VER}
 
